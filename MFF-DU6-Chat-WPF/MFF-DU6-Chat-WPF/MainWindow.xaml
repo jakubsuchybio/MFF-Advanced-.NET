@@ -1,0 +1,27 @@
+﻿<Window x:Class="MFF_DU6_Chat_WPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MFF_DU6_Chat_WPF"
+        mc:Ignorable="d"
+        Title="MFF-Chat" Height="406" Width="473" ResizeMode="CanMinimize" KeyUp="Window_KeyUp">
+    <Grid>
+        <Button x:Name="HostBtn" Content="Host a server" HorizontalAlignment="Left" Margin="10,9,0,0" VerticalAlignment="Top" Width="105" Click="HostBtn_Click"/>
+        <TextBox x:Name="IPTB" HorizontalAlignment="Left" Height="22" Margin="296,10,0,0" TextWrapping="Wrap" Text="127.0.0.1:4586" VerticalAlignment="Top" Width="150"/>
+        <Label x:Name="connectToIpLbl" Content="Connect to IP:" HorizontalAlignment="Left" Margin="210,6,0,0" VerticalAlignment="Top" Width="86"/>
+        <Button x:Name="ConnectBtn" Content="Connect to host" HorizontalAlignment="Left" Margin="10,34,0,0" VerticalAlignment="Top" Width="105" Click="ConnectBtn_Click"/>
+        <Button x:Name="SendBtn" Content="Send" HorizontalAlignment="Left" Margin="383,333,0,0" VerticalAlignment="Top" Width="63" Height="24" Click="SendBtn_Click"/>
+        <TextBox x:Name="MessageTB" HorizontalAlignment="Left" Height="23" Margin="10,333,0,0" TextWrapping="Wrap" Text="Type a message here" VerticalAlignment="Top" Width="369" GotFocus="MessageTB_GotFocus"/>
+        <Label x:Name="connectionLbl" Content="Connection:" HorizontalAlignment="Left" Margin="120,6,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="ConnectionLbl" Content="OFFLINE" HorizontalAlignment="Left" Margin="120,28,0,0" VerticalAlignment="Top" FontSize="14.667" FontWeight="Bold" Foreground="Red" BorderBrush="Black"/>
+        <Border Margin="10,63,0,0" Height="265" Width="436" HorizontalAlignment="Left" VerticalAlignment="Top" RenderTransformOrigin="-0.294,-0.425" BorderThickness="0.5" BorderBrush="Black">
+            <ScrollViewer x:Name="Scroller" Margin="0,0.5,0.5,0.5">
+                <TextBlock x:Name="messages" TextWrapping="Wrap" />
+            </ScrollViewer>
+        </Border>
+        <TextBox x:Name="UsernameTB" HorizontalAlignment="Left" Height="22" Margin="296,35,0,0" TextWrapping="Wrap" Text="Biosek" VerticalAlignment="Top" Width="150"/>
+        <Label x:Name="usernameLbl" Content="Username:" HorizontalAlignment="Left" Margin="210,31,0,0" VerticalAlignment="Top" Width="86"/>
+
+    </Grid>
+</Window>

@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace MFF_DU6_Chat_Forms.Properties
+namespace MFF_DU6_Chat_WPF.Properties
 {
 
 
