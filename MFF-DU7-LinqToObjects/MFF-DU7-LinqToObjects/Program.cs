@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Labs_LinqToObjects
+namespace MFF_DU7_LinqToObjects
 {
     class Program
     {
