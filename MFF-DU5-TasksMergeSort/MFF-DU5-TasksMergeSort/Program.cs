@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo( "Tests-TasksMergeSort" )]
+
 namespace MFF_DU5_TasksMergeSort {
     /*
      * Algoritmus:
@@ -73,7 +75,7 @@ namespace MFF_DU5_TasksMergeSort {
         /// </summary>
         /// <param name="reader"></param>
         /// <param name="writer"></param>
-        private static void ProcessFile( TextReader reader, TextWriter writer ) {
+        internal static void ProcessFile( TextReader reader, TextWriter writer ) {
             string line;
             List<double> dataBlock = new List<double>(BlockSize);
             ParallelMergeSort ps = new ParallelMergeSort(writer);
@@ -100,12 +102,14 @@ namespace MFF_DU5_TasksMergeSort {
 
     class ParallelMergeSort {
         //Fronta setridenych bloku
-        ConcurrentQueue<double[]> SortedBlocks;
+        internal ConcurrentQueue<double[]> SortedBlocks;
+        internal List<Task> tasks;
         //Pro ucely zaverecneho vypisu
         TextWriter writer;
 
         public ParallelMergeSort(TextWriter writer) {
             SortedBlocks = new ConcurrentQueue<double[]>();
+            tasks = new List<Task>();
             this.writer = writer;
         }
 
@@ -115,17 +119,26 @@ namespace MFF_DU5_TasksMergeSort {
         /// <param name="dataBlock">Vstupni dataBlock</param>
         /// <param name="lastBlock">Pri poslednim bloku se pocka na dokonceni predchozich tasku</param>
         public void AddBlock( double[] dataBlock, bool lastBlock = false) {
-            if( lastBlock )
-                Task.WaitAll();
-            var sortBlock = Task.Run( () => SortBlockAndEnqueue( dataBlock ) );
-            sortBlock.ContinueWith( ( t ) => CheckToMerge(lastBlock) );
+            //Posledni chunk delam synchronne, abych zesynchronizoval vsechny predchozi vypocty a mohl je vypsat
+            if( lastBlock ) {
+                Task.WaitAll( tasks.ToArray() );
+                SortBlockAndEnqueue( dataBlock );
+                CheckToMerge( lastBlock );
+                writer.Flush();
+            }
+            //Pamatuju si vsechny vytvorene tasky, kdyby 
+            else {
+                var sortBlock = Task.Run( () => SortBlockAndEnqueue( dataBlock ) );
+                var toReturn = sortBlock.ContinueWith( ( _ ) => CheckToMerge( lastBlock ) );
+                tasks.Add( toReturn );
+            }
         }
 
         /// <summary>
         /// Zkopiruje, sesorti a ulozi dataBlock
         /// </summary>
         /// <param name="dataBlock"></param>
-        private void SortBlockAndEnqueue( double[] dataBlock ) {
+        internal void SortBlockAndEnqueue( double[] dataBlock ) {
             double[] tmp = new double[ dataBlock.Length ];
             Array.Copy( dataBlock, tmp, dataBlock.Length );
             Array.Sort( tmp );
@@ -136,14 +149,21 @@ namespace MFF_DU5_TasksMergeSort {
         /// Kontroluje, zda jsou aspon 2 pole k mergnuti.
         /// Pokud ano, tak se je snazi z fronty odebrat:
         /// Pri spatnem odebrani jednoho se eventuelni dobre odebrany vlozi zpet
-        /// Pri spravnem odebrani obou se vytvori task pro Mergnuti obou poli a hned po jeho skonceni
-        /// se za nim vytvori hned dalsi Task pro dalsi CheckToMerge (kdyby naaahodou bylo neco dalsiho k mergovani)
+        /// Pri spravnem odebrani obou se provede Mergnuti obou poli synchronne, protoze tohle uz je samostatny task z AddBlocku
+        /// A kdyz merge dobehne, tak se zkusim rekurzivne zavolat znovu, kdybych mel nahodou vice jak 2 zpracovany pole k mergi
         /// Pri poslednim bloku mame z AddBlock zaruceno dobehnuti vsech tasku a ve fronte jsou 2 pole, ktera se
         /// poslou do MergeWritu k mergnuti a zapsani
         /// </summary>
         /// <param name="lastBlock"></param>
         /// <remarks>INVARIANT: lastBlock == true -> ve fronte jsou posledni 2 setridena pole</remarks>
         private void CheckToMerge( bool lastBlock ) {
+            //Kdyby ze vstupu prisel pouze jeden chunk dat, tak specialnim pripadem vypsani je toto
+            if( lastBlock && SortedBlocks.Count == 1 ) {
+                double[] A;
+                bool isA = SortedBlocks.TryDequeue( out A );
+                MergeWrite( A, new double[] { } );
+            }
+
             if( SortedBlocks.Count >= 2 ) {
                 double[] A,B;
                 bool isA = SortedBlocks.TryDequeue( out A );
@@ -153,9 +173,10 @@ namespace MFF_DU5_TasksMergeSort {
                         MergeWrite( A, B );
                     }
                     else {
-                        var mergeBlocks = Task.Run<double[]>( () => { return Merge( A, B ); } );
-                        var enqueueResult = mergeBlocks.ContinueWith( ( result ) => SortedBlocks.Enqueue( result.Result ) );
-                        enqueueResult.ContinueWith( ( t ) => CheckToMerge( lastBlock ) );
+                        var merged = Merge( A, B );
+                        SortedBlocks.Enqueue( merged );
+                        var task = Task.Run( () => CheckToMerge( lastBlock ) );
+                        tasks.Add( task );
                     }
                 }
                 else if( isA )
@@ -164,20 +185,26 @@ namespace MFF_DU5_TasksMergeSort {
                     SortedBlocks.Enqueue( B );
             }
         }
-        
+
         /// <summary>
         /// Jednoduchy merge 2 poli
         /// </summary>
         /// <param name="A">Prvni vstupni pole</param>
         /// <param name="B">Druhe vstupni pole</param>
         /// <returns>Mergnute vysledne pole</returns>
-        private double[] Merge( double[] A, double[] B ) {
+        internal double[] Merge( double[] A, double[] B ) {
             double[] res = new double[ A.Length + B.Length ];
             int resPos = 0;
             int APos = 0, BPos = 0;
 
             while( resPos != A.Length + B.Length ) {
-                if( A[ APos ] <= B[ BPos ] )
+                if(APos == A.Length ) {
+                    res[ resPos++ ] = B[ BPos++ ];
+                }
+                else if( BPos == B.Length ) {
+                    res[ resPos++ ] = A[ APos++ ];
+                }
+                else if( A[ APos ] <= B[ BPos ] )
                     res[ resPos++ ] = A[ APos++ ];
                 else
                     res[ resPos++ ] = B[ BPos++ ];
@@ -191,10 +218,17 @@ namespace MFF_DU5_TasksMergeSort {
         /// </summary>
         /// <param name="A">Prvni vstupni pole</param>
         /// <param name="B">Druhe vstupni pole</param>
-        private void MergeWrite( double[] A, double[] B ) {
+        internal void MergeWrite( double[] A, double[] B ) {
             int APos = 0, BPos = 0;
-            while( APos != A.Length - 1 && BPos != B.Length - 1) {
-                if( A[ APos ] <= B[ BPos ] )
+
+            while( APos + BPos != A.Length + B.Length ) {
+                if( APos == A.Length ) {
+                    writer.WriteLine( B[ BPos++ ] );
+                }
+                else if( BPos == B.Length ) {
+                    writer.WriteLine( A[ APos++ ] );
+                }
+                else if( A[ APos ] <= B[ BPos ] )
                     writer.WriteLine( A[ APos++ ] );
                 else
                     writer.WriteLine( B[ BPos++ ] );
